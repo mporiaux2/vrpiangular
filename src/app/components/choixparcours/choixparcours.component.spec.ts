@@ -1,18 +1,18 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { SimulationreelComponent } from './simulationreel.component';
+import { ChoixparcoursComponent } from './choixparcours.component';
 
-describe('SimulationreelComponent', () => {
-  let component: SimulationreelComponent;
-  let fixture: ComponentFixture<SimulationreelComponent>;
+describe('ChoixparcoursComponent', () => {
+  let component: ChoixparcoursComponent;
+  let fixture: ComponentFixture<ChoixparcoursComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [SimulationreelComponent]
+      imports: [ChoixparcoursComponent]
     })
     .compileComponents();
 
-    fixture = TestBed.createComponent(SimulationreelComponent);
+    fixture = TestBed.createComponent(ChoixparcoursComponent);
     component = fixture.componentInstance;
     await fixture.whenStable();
   });

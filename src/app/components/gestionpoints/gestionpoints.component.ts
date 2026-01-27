@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 
 @Component({
-  selector: 'app-gestionpoints.component',
+  selector: 'app-gestionpoints',
   imports: [],
   templateUrl: './gestionpoints.component.html',
   styleUrl: './gestionpoints.component.css',
