@@ -1,0 +1,27 @@
+
+<div class="status">
+  <p>Vitesse reçue : <strong>{{ vitesseRecue }}</strong></p>
+  <p>Direction reçue : <strong>{{ directionRecue }}</strong></p>
+</div>
+
+<div class="controls">
+  <button
+    id="gauche"
+    (pointerup)="toggleGauche()"
+    [style.background]="gaucheSimul ? 'green' : 'grey'">
+    Gauche
+  </button>
+
+  <button
+    id="droite"
+    (pointerup)="toggleDroite()"
+    [style.background]="droiteSimul ? 'green' : 'grey'">
+    Droite
+  </button>
+</div>
+
+<div class="vit">
+  <input id="vitesse" [(ngModel)]="vitesseAEnvoyer" placeholder="vitesse" />
+  <button (click)="sendVit()">Envoyer vitesse</button>
+</div>
+
