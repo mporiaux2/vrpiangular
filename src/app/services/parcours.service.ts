@@ -24,7 +24,7 @@ export class ClientsService{
     return this.http.post<Parcours>(this.host + '/parcours/', p);
   }
 
-  updateClient(p: Parcours): Observable<Parcours>{
+  updateParcours(p: Parcours): Observable<Parcours>{
     return this.http.put<Parcours>(this.host + '/parcours/' + p.idparcours, p);
   }
 }

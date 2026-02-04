@@ -1,9 +1,17 @@
 demo websocket spring boot
-<app-simulation></app-simulation>
-<div id="wrap">
-  <div id="panoA" class="panoView"></div>
-  <div id="panoB" class="panoView"></div>
-</div>
+<app-simulation [wstacx]="wstacx" [wsarduino]="wsarduino"></app-simulation>
+
 <div>
   <button (click)="avancer()">avancer</button>
 </div>
+<div class="containerglobal">
+<div class="left">
+<app-tdb [vit]="vit" [distParcours]="distParcours" [elevation]="elevation"></app-tdb>
+</div>
+<div id="wrap" class="right">
+  <div id="panoA" class="panoView"></div>
+  <div id="panoB" class="panoView"></div>
+</div>
+</div>
+
+

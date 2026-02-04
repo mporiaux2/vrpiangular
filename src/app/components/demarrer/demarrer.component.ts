@@ -1,7 +1,8 @@
-import { Component, NgZone, OnInit, OnDestroy } from '@angular/core';
+import {Component, NgZone, OnInit, OnDestroy, ChangeDetectorRef} from '@angular/core';
 import {SimulationComponent} from '../simulation/simulation.component';
 import {FormsModule} from '@angular/forms';
-
+import {TdbComponent} from '../tdb/tdb.component';
+import { ElevationService } from '../../services/elevation.service';
 
 declare global {
   interface Window {
@@ -18,7 +19,7 @@ async function sleep(ms: number) {
 @Component({
   selector: 'app-demarrer',
   standalone:true,
-  imports: [SimulationComponent, FormsModule],
+  imports: [SimulationComponent, FormsModule, TdbComponent],
   templateUrl: './demarrer.component.html',
   styleUrl: './demarrer.component.css',
 })
@@ -27,36 +28,60 @@ async function sleep(ms: number) {
 
 export class DemarrerComponent implements  OnInit,OnDestroy {
   private googleMapsScriptLoaded = false;
-  vitZoom:number= 2;
+  vitZoom:number= 1.50;
   FADE_MS = 1500;
-  head = 30;
+  head = 0;
   vit = 10;
+  pente:number=0;
   current = "A";
-  curr: string="A";
+  active:any;
+  next:any;
   isTransitioning = false;
   READY_GRACE_MS = 250;    // marge après "pano_changed" pour laisser apparaître des tuiles
   MAX_WAIT_MS = 4000;
   panoA:any;
   panoB:any;
-  wstacx:WebSocket | undefined;
-  wsarduino: WebSocket | undefined;
-
-  zoomact:number=1;
-
-  startzoom: number | undefined=0;
-
-  adist: number =0;
-
-  dtot:number=0;
-
-  dist:number=0;
-  rot:number=0;
-
-  active:any;
-  next:any;
+  wstacx:WebSocket;
+  wsarduino: WebSocket;
+  distParcours:number=0;
+  elevation: number=0;
+  elevator!: google.maps.ElevationService;
 
 
-  constructor(private zone: NgZone) {
+  startPos = {lat: 44.442500, lng: 4.413828};//Lagorce
+
+  constructor(private zone: NgZone, private cdr: ChangeDetectorRef) {
+    this.wstacx = new WebSocket("ws://pi5.local/wstacxhtml");
+    this.wstacx.onmessage = (e) => {
+       let  infos=e.data.split(":");
+      if(infos[0]=="v") {
+        this.vit = parseFloat(infos[1]);
+        console.log("réception vitesse : " + this.vit);
+
+      }
+      if(infos[0]=="p") {
+        this.pente = parseFloat(infos[1]);
+        console.log("réception pente: " + this.pente);
+
+      }
+      this.cdr.detectChanges();
+    }
+
+    this.wsarduino = new WebSocket("ws://pi5.local/wsarduinohtml");
+
+    this.wsarduino.onmessage = (e) => {
+      console.log("réception direction map:" + e.data);
+       let rot = parseInt(e.data);
+      this.active.setPov({
+        heading: rot,
+        pitch: 0,
+      });
+      this.next.setPov({
+        heading: rot,
+        pitch: 0,
+      })
+    };
+
   }
 
   ngOnInit(): void {
@@ -67,46 +92,8 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
 
     this.loadGoogleMapsScript();
     this.setFadeDuration(this.FADE_MS);
-    this.wstacx = new WebSocket("ws://pi5.local/wstacxhtml");
-//wstacx.onopen = () => wstacx.send("activation de wstacxhtml");
-    this.wstacx.onmessage = (e) => {
-      console.log("réception vitesse : " + e.data);
-      this.vit = parseFloat(e.data);
-    }
-
-    this.wsarduino = new WebSocket("ws://pi5.local/wsarduinohtml");
-//wsarduino.onopen = () => wsarduino.send("activation de wsarduinohtml");
-    this.wsarduino.onmessage = (e) => {
-      console.log("réception direction :" + e.data);
-      let direction: number = parseInt(e.data);
-      switch (direction) {
-        case 0 :
-
-          break;
-        case 1 :
-          this.rot -= 3;
-          this.rotate();
-          break;
-        case 2 :
-          this.rot += 3;
-          this.rotate();
-          break;
-      }
-    }
-
 
   }
-  rotate() {
-    this.active.setPov({
-        heading: this.rot,
-        pitch: 0,
-      });
-    this.next.setPov({
-      heading:this.rot,
-      pitch:0,
-    })
-  }
-
   ngOnDestroy(): void {
     // Optionnel : cleanup
     delete (window as any).initializeStreetView;
@@ -125,11 +112,15 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
     const apiKey = 'AIzaSyDPLZsTh4cya1n_CshNgzsH4OmKDLWK8xQ';
 
     script.src =
-      `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initializeStreetView`;
+   `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initializeStreetView`;
+
 
     script.onload = () => {
       console.log('Google Maps script chargé');
       this.googleMapsScriptLoaded = true;
+      if (!this.elevator) {
+        this.elevator = new google.maps.ElevationService();
+      }
     };
 
     script.onerror = () => {
@@ -139,7 +130,6 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
     document.head.appendChild(script);
   }
 
-  // ----- CALLBACK ANGULAR -----
 
 
 
@@ -147,13 +137,13 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
 
   private initializeStreetView(): void {
     console.log('Initialisation Street View (Angular)');
-
+    this.init();
 
     this.panoA = new (window as any).google.maps.StreetViewPanorama(
       document.getElementById('panoA') as HTMLElement,
       {
-        position: {lat: 44.442500, lng: 4.413828}, // lagorce
-        pov: {heading: 30, pitch: 0},
+        position: this.startPos,
+        pov: {heading: this.head, pitch: 0},
         zoom: 1,
       }
     );
@@ -162,8 +152,8 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
     this.panoB = new (window as any).google.maps.StreetViewPanorama(
       document.getElementById('panoB') as HTMLElement,
       {
-        position: {lat: 44.442500, lng: 4.413828}, // lagorce
-        pov: {heading: 30, pitch: 0},
+        position: this.startPos,
+        pov: {heading: this.head, pitch: 0},
         zoom: 1,
       }
     );
@@ -230,9 +220,29 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
   init() {
     this.setFadeDuration(this.FADE_MS);
 
-    const startPos = {lat: 44.442500, lng: 4.413828};//lagorce
+    this.startPos = {lat: 44.442500, lng: 4.413828};//lagorce
 
   }
+
+  async chargerElevation() {
+    this.elevator.getElevationForLocations({'locations': [this.active.getPosition()]}, (results, status) => {
+      if (status === 'OK') {
+         if (!(results) || results[0]) {
+          if (results) {
+            this.elevation=results[0].elevation;
+            console.log("elevation = " + results[0].elevation);
+            this.wstacx.send("h:"+this.elevation);
+          }
+            }
+          }
+
+   });
+  }
+
+
+
+
+
     difference(pano:any, link:any) {
     var diff = Math.abs(pano.pov.heading % 360 - link.heading);
     if (diff > 180)
@@ -243,16 +253,15 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
   async   avancer() {
 
     do {
+      this.chargerElevation();
       console.log("ok0");
+      this.distParcours=Math.round(this.distParcours);
+      this.cdr.detectChanges();
       if (this.isTransitioning) return;
       this.isTransitioning = true;
 
       this.active = (this.current === "A") ? this.panoA : this.panoB;
       this.next = (this.current === "A") ? this.panoB : this.panoA;
-
-
-
-
 
       const links = this.active.getLinks();
       if (!links || links.length === 0) {
@@ -261,47 +270,32 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
       }
       console.log(" nbre liens = " + this.active.getLinks().length);
       console.log(" heading active= " + this.active.pov.heading);
-      this.curr = this.active.links[0];
-      let differ = this.difference(this.active, this.curr);
+      let curr = this.active.links[0];
+      let differ = this.difference(this.active, curr);
       console.log("differ 0 = " + differ);
       for (let i = 1; i < this.active.getLinks().length; i++) {
         differ = this.difference(this.active, this.active.links[i]);
 
         console.log("differ " + i + " = " + differ);
-        if (this.difference(this.active, this.curr) > this.difference(this.active, this.active.links[i])) {
-          this.curr = this.active.links[i];
+        if (this.difference(this.active, curr) > this.difference(this.active, this.active.links[i])) {
+          curr = this.active.links[i];
           console.log("ok =" + i);
         }
       }
 
-      const target :any = this.curr;
+      const target :any = curr;
 
       // Aligne POV pour que le fondu paraisse “continu”
       const pov = this.active.getPov();
       this.head=pov.heading;
-      //next.setPov({ heading: target.heading, pitch: pov.pitch });
       console.log("head = " + this.head);
       this.next.setPov({heading: this.head, pitch: pov.pitch});
-      //next.setZoom(active.getZoom());
       this.next.setZoom(1);
 
       // Précharge le pano suivant (EN RESTANT INVISIBLE)
       this.next.setPano(target.pano);
-     // let lapsTemps = 10 / this.vit * 3600;
-     // await this.zoomOut(lapsTemps, active);
-
-      const R = 6371000.0;
-      const oldlatr =  this.active.getPosition().lat() * Math.PI / 180;
-      const oldlongr = this.active.getPosition().lng() * Math.PI / 180;
-      const latr = this.next.getPosition().lat() * Math.PI / 180;
-      const longr = this.next.getPosition().lng() * Math.PI / 180;
-
-      this.dist = R * Math.acos(Math.cos(oldlatr) * Math.cos(latr) *
-        Math.cos(longr - oldlongr) + Math.sin(oldlatr) *
-        Math.sin(latr));
-
-      console.log("oldatr="+oldlatr+"oldlongr="+oldlongr+"latr="+latr+"longr="+longr+"distance = "+this.dist);
-      await this.zoomOut(this.active);
+       let dist = this.calculDistance(this.active,this.next);
+      await this.zoomOut(this.active,dist);
 
       // Attendre qu’il soit “prêt” (au moins un pano_changed + petite marge)
       await this.waitForNextPanoReady(this.next, target.pano);
@@ -321,62 +315,43 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
   }
 
 
- async   zoomOut( pano :any) {
+  calculDistance(pa:any,pb:any) : number{
 
-    this.zoomact=1;
-    this.adist=0;
-    this.dtot=0;
-    console.log("distance = "+this.dist);
+    const R = 6371000.0;
+    const oldlatr =  pa.getPosition().lat() * Math.PI / 180;
+    const oldlongr = pa.getPosition().lng() * Math.PI / 180;
+    const latr = pb.getPosition().lat() * Math.PI / 180;
+    const longr = pb.getPosition().lng() * Math.PI / 180;
+
+    return R * Math.acos(Math.cos(oldlatr) * Math.cos(latr) *
+      Math.cos(longr - oldlongr) + Math.sin(oldlatr) *
+      Math.sin(latr));
+
+  }
+
+ async   zoomOut( pano :any,dist:number) {
+
+    let zoomact=1;
+    let dtot=0;
     return new Promise<void>(resolve => {
-      this.startzoom = performance.now();
-
+      let startzoom = performance.now();
       const step = (now: any) => {
-        let msg="adist :"+this.adist;
-        msg+="startzoom :"+this.startzoom;
-        msg+="now ="+now;
-        msg+="vitesse :"+this.vit;
-        let lapsTemps = (this.dist -this.adist) / this.vit * 3600;
-        msg+="lapsTemps :"+lapsTemps;
         // @ts-ignore
-         this.dtot = this.dtot+(now - this.startzoom) / lapsTemps;
-        msg+="dtot :"+this.dtot;
-        this.zoomact= 1+ this.adist/this.dist * this.vitZoom;
-        msg+="zoomact :"+this.zoomact;
-        console.log(msg);
-        // @ts-ignore
+        let deltaDist=(now - startzoom)*this.vit/3600 ;
+        dtot = dtot+deltaDist;
+        this.distParcours+=deltaDist;
 
-        this.adist=this.adist+(now-this.startzoom)*this.vit/3600;
-        console.log("adist :"+this.adist);
-        pano.setZoom(this.zoomact); // zoom vers 3
-        this.startzoom = now;
-        if (this.adist< this.dist) requestAnimationFrame(step);
+       // console.log("distance parcours="+this.distParcours);
+        zoomact= 1+ dtot/dist * this.vitZoom;
+        // @ts-ignore
+        pano.setZoom(zoomact); // zoom vers 3
+        startzoom = now;
+        if (dtot< dist) requestAnimationFrame(step);
         else resolve();
       }
-
       requestAnimationFrame(step);
     });
   }
-
-  /*
- async   zoomOut(pano :any) {
-    let duration =  10 / this.vit * 3600;
-    console.log("duration = "+duration);
-    return new Promise<void>(resolve => {
-      const start = performance.now();
-
-      const step = (now: any) => {
-        const dtot = Math.min((now - start) / duration, 1);
-        console.log(("vitzoom = "+this.vitZoom+" dtot ="+dtot));
-        this.zoomact=1+dtot * this.vitZoom;
-        pano.setZoom(this.zoomact); // zoom vers 3
-
-        if (dtot < 1) requestAnimationFrame(step);
-        else resolve();
-      }
-
-      requestAnimationFrame(step);
-    });
-  }*/
 }
 
 

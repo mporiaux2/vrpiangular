@@ -1,4 +1,4 @@
-import {Component,  ChangeDetectorRef, OnDestroy, OnInit} from '@angular/core';
+import {Component, ChangeDetectorRef, OnDestroy, OnInit, Input} from '@angular/core';
 import {FormsModule, ReactiveFormsModule} from "@angular/forms";
 
 @Component({
@@ -24,24 +24,20 @@ export class SimulationComponent implements OnInit, OnDestroy {
   // input vitesse à envoyer
   vitesseAEnvoyer = '';
 
-  // websockets
-  private wstacx?: WebSocket;
-  private wsarduino?: WebSocket;
+  // ----- actions UI -----
+  @Input() wstacx!: WebSocket;
+  @Input() wsarduino!: WebSocket;
 
 
   constructor(private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
-    this.initWsTacx();
-    this.initWsArduino();
   }
 
   ngOnDestroy(): void {
-    this.wstacx?.close();
-    this.wsarduino?.close();
   }
 
-  private initWsTacx(): void {
+ /* private initWsTacx(): void {
     this.wstacx = new WebSocket('ws://pi5.local/wstacxhtml');
 
     this.wstacx.onopen = () => {
@@ -56,7 +52,10 @@ export class SimulationComponent implements OnInit, OnDestroy {
     };
 
     this.wstacx.onerror = () => console.log('Erreur WebSocket TACX');
-    this.wstacx.onclose = () => console.log('WebSocket TACX fermé');
+    this.wstacx.onclose = () =>{
+      console.log('WebSocket TACX fermé');
+      this.initWsTacx();
+    }
   }
 
   private initWsArduino(): void {
@@ -74,10 +73,13 @@ export class SimulationComponent implements OnInit, OnDestroy {
     };
 
     this.wsarduino.onerror = () => console.log('Erreur WebSocket ARDUINO');
-    this.wsarduino.onclose = () => console.log('WebSocket ARDUINO fermé');
-  }
+    this.wsarduino.onclose = () => {
+      console.log('WebSocket ARDUINO fermé');
+      this.initWsArduino();
+    }
+  }*/
 
-  // ----- actions UI -----
+
 
 
   toggleDroite(): void {
@@ -110,7 +112,7 @@ export class SimulationComponent implements OnInit, OnDestroy {
     this.safeSend(this.wstacx, `v:${this.vitesseAEnvoyer}`);
   }
 
-  // ----- util -----
+
 
   private safeSend(ws: WebSocket | undefined, msg: string): void {
     if (!ws) {

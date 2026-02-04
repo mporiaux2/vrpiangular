@@ -10,3 +10,20 @@
 
 }
 #panoB{ opacity:0; } /* B démarre caché */
+
+.containerglobal {
+  display: flex;
+  height: 95%;
+  background-color: lightblue;
+}
+
+.left {
+  width: 20%;
+  background-color: lightblue;
+  text-align: left;
+}
+
+.right {
+  width: 90%;
+  background-color: lightcoral;
+}
