@@ -53,6 +53,7 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
   constructor(private zone: NgZone, private cdr: ChangeDetectorRef) {
     this.wstacx = new WebSocket("ws://pi5.local/wstacxhtml");
     this.wstacx.onmessage = (e) => {
+      console.log("infos reçues = "+e.data);
        let  infos=e.data.split(":");
       if(infos[0]=="v") {
         this.vit = parseFloat(infos[1]);
@@ -225,7 +226,7 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
   }
 
   async chargerElevation() {
-    this.elevator.getElevationForLocations({'locations': [this.active.getPosition()]}, (results, status) => {
+    this.elevator.getElevationForLocations({'locations': [this.next.getPosition()]}, (results, status) => {
       if (status === 'OK') {
          if (!(results) || results[0]) {
           if (results) {

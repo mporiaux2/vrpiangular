@@ -11,4 +11,5 @@ export class TdbComponent {
   @Input({transform: (value: number)=> Math.round(value), required: true}) vit!: Observable<number>;
   @Input({transform: (value: number)=> Math.round(value), required: true}) distParcours!: Observable<number>;
   @Input({transform: (value: number)=> Math.round(value), required: true}) elevation!: Observable<number>;
+  @Input({transform: (value: number)=> Math.round(value*10)/10, required: true}) pente!: Observable<number>;
 }
