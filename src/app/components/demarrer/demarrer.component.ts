@@ -2,7 +2,7 @@ import {Component, NgZone, OnInit, OnDestroy, ChangeDetectorRef} from '@angular/
 import {SimulationComponent} from '../simulation/simulation.component';
 import {FormsModule} from '@angular/forms';
 import {TdbComponent} from '../tdb/tdb.component';
-import { ElevationService } from '../../services/elevation.service';
+import {GoogleMapsLoaderService} from '../../services/google-maps-loader.service'
 
 declare global {
   interface Window {
@@ -28,7 +28,7 @@ async function sleep(ms: number) {
 
 export class DemarrerComponent implements  OnInit,OnDestroy {
   private googleMapsScriptLoaded = false;
-  vitZoom:number= 1.50;
+  vitZoom:number= 0.80;
   FADE_MS = 1500;
   head = 0;
   vit = 10;
@@ -46,11 +46,13 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
   distParcours:number=0;
   elevation: number=0;
   elevator!: google.maps.ElevationService;
+  startPos =  {lat:50.456494,lng:4.238618} //rue de la portelette Morlanwez
+
+  //{lat: 44.442500, lng: 4.413828};//Lagorce
 
 
-  startPos = {lat: 44.442500, lng: 4.413828};//Lagorce
 
-  constructor(private zone: NgZone, private cdr: ChangeDetectorRef) {
+  constructor(private zone: NgZone, private cdr: ChangeDetectorRef,private mapsService:GoogleMapsLoaderService) {
     this.wstacx = new WebSocket("ws://pi5.local/wstacxhtml");
     this.wstacx.onmessage = (e) => {
       console.log("infos reçues = "+e.data);
@@ -83,6 +85,9 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
       })
     };
 
+
+
+
   }
 
   ngOnInit(): void {
@@ -110,7 +115,7 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
     script.defer = true;
 
     //  Mets ta vraie clé ici
-    const apiKey = 'AIzaSyDPLZsTh4cya1n_CshNgzsH4OmKDLWK8xQ';
+    const apiKey = this.mapsService.apiKey;
 
     script.src =
    `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initializeStreetView`;
@@ -221,7 +226,7 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
   init() {
     this.setFadeDuration(this.FADE_MS);
 
-    this.startPos = {lat: 44.442500, lng: 4.413828};//lagorce
+    this.startPos =  {lat:50.456494,lng:4.238618} //rue de la portelette Morlanwez
 
   }
 
