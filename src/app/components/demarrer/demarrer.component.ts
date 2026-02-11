@@ -3,6 +3,7 @@ import {SimulationComponent} from '../simulation/simulation.component';
 import {FormsModule} from '@angular/forms';
 import {TdbComponent} from '../tdb/tdb.component';
 import {GoogleMapsLoaderService} from '../../services/google-maps-loader.service'
+import {ValeursService} from '../../services/valeurs.service'
 
 declare global {
   interface Window {
@@ -28,8 +29,8 @@ async function sleep(ms: number) {
 
 export class DemarrerComponent implements  OnInit,OnDestroy {
   private googleMapsScriptLoaded = false;
-  vitZoom:number= 0.80;
-  FADE_MS = 1500;
+  vitZoom:number;
+  FADE_MS:number;
   head = 0;
   vit = 10;
   pente:number=0;
@@ -37,8 +38,8 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
   active:any;
   next:any;
   isTransitioning = false;
-  READY_GRACE_MS = 250;    // marge après "pano_changed" pour laisser apparaître des tuiles
-  MAX_WAIT_MS = 4000;
+  READY_GRACE_MS:number;    // marge après "pano_changed" pour laisser apparaître des tuiles
+  MAX_WAIT_MS :number;
   panoA:any;
   panoB:any;
   wstacx:WebSocket;
@@ -52,7 +53,15 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
 
 
 
-  constructor(private zone: NgZone, private cdr: ChangeDetectorRef,private mapsService:GoogleMapsLoaderService) {
+  constructor(private zone: NgZone, private cdr: ChangeDetectorRef,private mapsService:GoogleMapsLoaderService,private valeursService:ValeursService) {
+
+    this.vitZoom= valeursService.vitZoom;
+    this.FADE_MS = valeursService.FADE_MS;
+    this.READY_GRACE_MS = valeursService.READY_GRACE_MS;
+    this.MAX_WAIT_MS = valeursService.MAX_WAIT_MS;
+    this.startPos = valeursService.startPos ;
+
+
     this.wstacx = new WebSocket("ws://pi5.local/wstacxhtml");
     this.wstacx.onmessage = (e) => {
       console.log("infos reçues = "+e.data);
@@ -97,7 +106,7 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
     };
 
     this.loadGoogleMapsScript();
-    this.setFadeDuration(this.FADE_MS);
+    //this.setFadeDuration(this.FADE_MS);
 
   }
   ngOnDestroy(): void {
@@ -115,7 +124,7 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
     script.defer = true;
 
     //  Mets ta vraie clé ici
-    const apiKey = this.mapsService.apiKey;
+    const apiKey = this.valeursService.apiKey;
 
     script.src =
    `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initializeStreetView`;
@@ -225,9 +234,6 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
 
   init() {
     this.setFadeDuration(this.FADE_MS);
-
-    this.startPos =  {lat:50.456494,lng:4.238618} //rue de la portelette Morlanwez
-
   }
 
   async chargerElevation() {
@@ -237,7 +243,8 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
           if (results) {
             this.elevation=results[0].elevation;
             console.log("elevation = " + results[0].elevation);
-            this.wstacx.send("h:"+this.elevation);
+            console.log("distparcours = "+this.distParcours);
+            this.wstacx.send("h:"+this.elevation+":"+this.distParcours);
           }
             }
           }
@@ -261,6 +268,7 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
     do {
       this.chargerElevation();
       console.log("ok0");
+      console.log("boucle avancer , distparcours = "+ this.distParcours);
       this.distParcours=Math.round(this.distParcours);
       this.cdr.detectChanges();
       if (this.isTransitioning) return;
@@ -347,7 +355,7 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
         dtot = dtot+deltaDist;
         this.distParcours+=deltaDist;
 
-       // console.log("distance parcours="+this.distParcours);
+        console.log("distance parcours="+this.distParcours);
         zoomact= 1+ dtot/dist * this.vitZoom;
         // @ts-ignore
         pano.setZoom(zoomact); // zoom vers 3
