@@ -53,8 +53,6 @@ export class GoogleMapsLoaderService {
     script.async = true;
     script.defer = true;
 
-    //  Mets ta vraie clé ici
-    //const apiKey = 'AIzaSyAuy-eGBKO_RzCDakQt66MGEphU73g2lBo';
 
     script.src =
       `https://maps.googleapis.com/maps/api/js?key=${this.apiKey}&callback=initializeStreetView`;
