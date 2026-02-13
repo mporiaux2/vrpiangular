@@ -4,6 +4,7 @@ import {FormsModule} from '@angular/forms';
 import {TdbComponent} from '../tdb/tdb.component';
 import {GoogleMapsLoaderService} from '../../services/google-maps-loader.service'
 import {ValeursService} from '../../services/valeurs.service'
+import {NgIf} from '@angular/common';
 
 declare global {
   interface Window {
@@ -20,7 +21,7 @@ async function sleep(ms: number) {
 @Component({
   selector: 'app-demarrer',
   standalone:true,
-  imports: [SimulationComponent, FormsModule, TdbComponent],
+  imports: [SimulationComponent, FormsModule, TdbComponent, NgIf],
   templateUrl: './demarrer.component.html',
   styleUrl: './demarrer.component.css',
 })
@@ -48,6 +49,12 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
   elevation: number=0;
   elevator!: google.maps.ElevationService;
   startPos =  {lat:50.456494,lng:4.238618} //rue de la portelette Morlanwez
+  oldelev:number=0;
+  deniv:number =0;
+  premelev=true;
+  showChild = true;
+
+
 
   //{lat: 44.442500, lng: 4.413828};//Lagorce
 
@@ -106,12 +113,16 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
     };
 
     this.loadGoogleMapsScript();
-    //this.setFadeDuration(this.FADE_MS);
 
   }
   ngOnDestroy(): void {
     // Optionnel : cleanup
     delete (window as any).initializeStreetView;
+  }
+
+
+  toggleChild() {
+    this.showChild = !this.showChild;
   }
 
   private loadGoogleMapsScript(): void {
@@ -123,8 +134,7 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
     script.async = true;
     script.defer = true;
 
-    //  Mets ta vraie clé ici
-    const apiKey = this.valeursService.apiKey;
+      const apiKey = this.valeursService.apiKey;
 
     script.src =
    `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initializeStreetView`;
@@ -240,8 +250,17 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
     this.elevator.getElevationForLocations({'locations': [this.next.getPosition()]}, (results, status) => {
       if (status === 'OK') {
          if (!(results) || results[0]) {
-          if (results) {
+
+           if (results) {
+            if(this.premelev){
+              this.oldelev=results[0].elevation;
+              this.premelev=false;
+            }
             this.elevation=results[0].elevation;
+            let deltaElevation:number = this.elevation-this.oldelev;
+            if(deltaElevation>0)  this.deniv+=deltaElevation;
+            this.oldelev=this.elevation;
+
             console.log("elevation = " + results[0].elevation);
             console.log("distparcours = "+this.distParcours);
             this.wstacx.send("h:"+this.elevation+":"+this.distParcours);

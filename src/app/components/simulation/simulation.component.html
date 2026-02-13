@@ -1,9 +1,4 @@
 
-<div class="status">
-  <p>Vitesse reçue : <strong>{{ vitesseRecue }}</strong></p>
-  <p>Direction reçue : <strong>{{ directionRecue }}</strong></p>
-</div>
-
 <div class="controls">
   <button
     id="gauche"
@@ -20,8 +15,8 @@
   </button>
 </div>
 
+
 <div class="vit">
-  <input id="vitesse" [(ngModel)]="vitesseAEnvoyer" placeholder="vitesse" />
-  <button (click)="sendVit()">Envoyer vitesse</button>
+  <input id="vitesse" [(ngModel)]="vitesseAEnvoyer" placeholder="vitesse" (keyup.enter)="sendVit()"/>
 </div>
 

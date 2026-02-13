@@ -125,4 +125,6 @@ export class SimulationComponent implements OnInit, OnDestroy {
     }
     ws.send(msg);
   }
+
+
 }

@@ -1,12 +1,17 @@
-demo websocket spring boot
-<app-simulation [wstacx]="wstacx" [wsarduino]="wsarduino"></app-simulation>
-
-<div>
-  <button (click)="avancer()">avancer</button>
-</div>
 <div class="containerglobal">
 <div class="left">
-<app-tdb [vit]="vit" [distParcours]="distParcours" [elevation]="elevation" [pente]="pente"></app-tdb>
+  <div class="tdb">
+  <div>
+    <button (click)="avancer()">avancer</button>
+    <button type="button" (click)="toggleChild()">
+      {{ showChild ? 'OFF' : 'ON' }}
+    </button>
+  </div>
+
+ <app-simulation *ngIf="showChild" [wstacx]="wstacx" [wsarduino]="wsarduino"></app-simulation>
+
+  <app-tdb [vit]="vit" [distParcours]="distParcours" [elevation]="elevation" [pente]="pente" [deniv]="deniv"></app-tdb>
+  </div>
 </div>
 <div id="wrap" class="right">
   <div id="panoA" class="panoView"></div>

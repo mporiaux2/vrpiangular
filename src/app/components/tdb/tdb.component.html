@@ -1,4 +1,10 @@
+<div>
 <p>vitesse = {{vit}} km/h</p>
 <p>distance = {{distParcours}} m</p>
 <p>altitude ={{elevation}} m</p>
-<p>pente ={{pente}} %</p>
+<p>d+={{deniv}} m</p>
+<div [ngClass]="penteClass">
+  pente ={{ pente }} %
+</div>
+</div>
+
