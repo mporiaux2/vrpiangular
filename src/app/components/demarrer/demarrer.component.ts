@@ -1,204 +1,157 @@
-import {Component, NgZone, OnInit, OnDestroy, ChangeDetectorRef} from '@angular/core';
-import {SimulationComponent} from '../simulation/simulation.component';
-import {FormsModule} from '@angular/forms';
-import {TdbComponent} from '../tdb/tdb.component';
-import {GoogleMapsLoaderService} from '../../services/google-maps-loader.service'
-import {ValeursService} from '../../services/valeurs.service'
-import {NgIf} from '@angular/common';
-
-declare global {
-  interface Window {
-    initializeStreetView: () => void;
-  }
-}
-
+// demarrer.component.ts (version allégée côté Google Maps)
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { SimulationComponent } from '../simulation/simulation.component';
+import { FormsModule } from '@angular/forms';
+import { TdbComponent } from '../tdb/tdb.component';
+import { ValeursService } from '../../services/valeurs.service';
+import { NgIf } from '@angular/common';
+import { StreetViewMapsService } from '../../services/StreetViewMapService.service';
 
 async function sleep(ms: number) {
   return new Promise(r => setTimeout(r, ms));
 }
 
-
 @Component({
   selector: 'app-demarrer',
-  standalone:true,
+  standalone: true,
   imports: [SimulationComponent, FormsModule, TdbComponent, NgIf],
   templateUrl: './demarrer.component.html',
   styleUrl: './demarrer.component.css',
 })
+class DemarrerComponent implements OnInit, OnDestroy {
 
+  vitZoom: number;
+  FADE_MS: number;
+  READY_GRACE_MS: number;
+  MAX_WAIT_MS: number;
 
-
-export class DemarrerComponent implements  OnInit,OnDestroy {
-  private googleMapsScriptLoaded = false;
-  vitZoom:number;
-  FADE_MS:number;
   head = 0;
   vit = 10;
-  pente:number=0;
+  pente = 0;
+
   current = "A";
-  active:any;
-  next:any;
+  active: any;
+  next: any;
   isTransitioning = false;
-  READY_GRACE_MS:number;    // marge après "pano_changed" pour laisser apparaître des tuiles
-  MAX_WAIT_MS :number;
-  panoA:any;
-  panoB:any;
-  wstacx:WebSocket;
+
+  panoA: any;
+  panoB: any;
+
+  carte:any;
+
+  wstacx: WebSocket;
   wsarduino: WebSocket;
-  distParcours:number=0;
-  elevation: number=0;
-  elevator!: google.maps.ElevationService;
-  startPos =  {lat:50.456494,lng:4.238618} //rue de la portelette Morlanwez
-  oldelev:number=0;
-  deniv:number =0;
-  premelev=true;
+
+  distParcours = 0;
+  elevation = 0;
+  startPos = { lat: 50.456494, lng: 4.238618 };
+
+  oldelev = 0;
+  deniv = 0;
+  premelev = true;
+
   showChild = true;
 
+  rot:number=0;
 
-
-  //{lat: 44.442500, lng: 4.413828};//Lagorce
-
-
-
-  constructor(private zone: NgZone, private cdr: ChangeDetectorRef,private mapsService:GoogleMapsLoaderService,private valeursService:ValeursService) {
-
-    this.vitZoom= valeursService.vitZoom;
+  constructor(
+    private cdr: ChangeDetectorRef,
+    private valeursService: ValeursService,
+    private maps: StreetViewMapsService
+  ) {
+    this.vitZoom = valeursService.vitZoom;
     this.FADE_MS = valeursService.FADE_MS;
     this.READY_GRACE_MS = valeursService.READY_GRACE_MS;
     this.MAX_WAIT_MS = valeursService.MAX_WAIT_MS;
-    this.startPos = valeursService.startPos ;
+    this.startPos = valeursService.startPos;
+
 
 
     this.wstacx = new WebSocket("ws://pi5.local/wstacxhtml");
     this.wstacx.onmessage = (e) => {
-      console.log("infos reçues = "+e.data);
-       let  infos=e.data.split(":");
-      if(infos[0]=="v") {
-        this.vit = parseFloat(infos[1]);
-        console.log("réception vitesse : " + this.vit);
-
-      }
-      if(infos[0]=="p") {
-        this.pente = parseFloat(infos[1]);
-        console.log("réception pente: " + this.pente);
-
-      }
+      const infos = e.data.split(":");
+      if (infos[0] === "v") this.vit = parseFloat(infos[1]);
+      if (infos[0] === "p") this.pente = parseFloat(infos[1]);
       this.cdr.detectChanges();
-    }
+    };
 
     this.wsarduino = new WebSocket("ws://pi5.local/wsarduinohtml");
-
     this.wsarduino.onmessage = (e) => {
-      console.log("réception direction map:" + e.data);
-       let rot = parseInt(e.data);
-      this.active.setPov({
-        heading: rot,
-        pitch: 0,
-      });
-      this.next.setPov({
-        heading: rot,
-        pitch: 0,
-      })
-    };
-
-
-
-
+      this.rot = parseInt(e.data, 10);
+      this.active?.setPov({ heading: this.rot, pitch: 0 });
+      this.next?.setPov({ heading: this.rot, pitch: 0 });
+      this.carte?.setHeading(this.rot);
+     };
   }
 
-  ngOnInit(): void {
-    // Exposer la fonction callback pour Google
-    window.initializeStreetView = () => {
-      this.zone.run(() => this.initializeStreetView());
-    };
+  async ngOnInit(): Promise<void> {
+    // 1) charge Google Maps via service
+    await this.maps.load(this.valeursService.apiKey);
 
-    this.loadGoogleMapsScript();
-
+    // 2) crée les panoramas via service
+    this.setFadeDuration(this.FADE_MS);
+    this.panoA = this.maps.createPanorama(
+      document.getElementById('panoA') as HTMLElement,
+      this.startPos,
+      this.head
+    );
+    this.panoB = this.maps.createPanorama(
+      document.getElementById('panoB') as HTMLElement,
+      this.startPos,
+      this.head
+    );
+    this.carte = this.maps.createMap(
+      document.getElementById('carte') as HTMLElement,
+      {
+        center: this.startPos,
+        zoom: 22,
+        tilt: 47.5,
+        mapTypeId: 'satellite',
+        heading: this.rot,
+        mapId: '90f87356969d889c',
+      }
+    );
   }
+
+
+
   ngOnDestroy(): void {
-    // Optionnel : cleanup
-    delete (window as any).initializeStreetView;
+    this.maps.cleanupGlobalCallback();
   }
-
 
   toggleChild() {
     this.showChild = !this.showChild;
   }
 
-  private loadGoogleMapsScript(): void {
-    if (this.googleMapsScriptLoaded) {
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.async = true;
-    script.defer = true;
-
-      const apiKey = this.valeursService.apiKey;
-
-    script.src =
-   `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initializeStreetView`;
-
-
-    script.onload = () => {
-      console.log('Google Maps script chargé');
-      this.googleMapsScriptLoaded = true;
-      if (!this.elevator) {
-        this.elevator = new google.maps.ElevationService();
-      }
-    };
-
-    script.onerror = () => {
-      console.error('Erreur de chargement Google Maps');
-    };
-
-    document.head.appendChild(script);
-  }
-
-
-
-
-
-
-  private initializeStreetView(): void {
-    console.log('Initialisation Street View (Angular)');
-    this.init();
-
-    this.panoA = new (window as any).google.maps.StreetViewPanorama(
-      document.getElementById('panoA') as HTMLElement,
-      {
-        position: this.startPos,
-        pov: {heading: this.head, pitch: 0},
-        zoom: 1,
-      }
-    );
-
-
-    this.panoB = new (window as any).google.maps.StreetViewPanorama(
-      document.getElementById('panoB') as HTMLElement,
-      {
-        position: this.startPos,
-        pov: {heading: this.head, pitch: 0},
-        zoom: 1,
-      }
-    );
-  }
-
-
-
-
   setFadeDuration(ms: any) {
-    // @ts-ignore
-    document.getElementById("panoA").style.transition = `opacity ${ms}ms ease`;
-    // @ts-ignore
-    document.getElementById("panoB").style.transition = `opacity ${ms}ms ease`;
+    (document.getElementById("panoA") as HTMLElement).style.transition = `opacity ${ms}ms ease`;
+    (document.getElementById("panoB") as HTMLElement).style.transition = `opacity ${ms}ms ease`;
   }
 
-   waitForNextPanoReady(pano: { getPano: () => any; addListener: (arg0: string, arg1: () => Promise<void>) => any; }, expectedPanoId: any) {
+
+  async chargerElevation() {
+    try {
+      const elev = await this.maps.getElevationAt(this.next.getPosition());
+      if (this.premelev) {
+        this.oldelev = elev;
+        this.premelev = false;
+      }
+
+      this.elevation = elev;
+      const delta = this.elevation - this.oldelev;
+      if (delta > 0) this.deniv += delta;
+      this.oldelev = this.elevation;
+
+      this.wstacx.send("h:" + this.elevation + ":" + this.distParcours);
+    } catch (e) {
+      console.error('Elevation error', e);
+    }
+  }
+
+
+  waitForNextPanoReady(pano: any, expectedPanoId: any) {
     return new Promise(async (resolve) => {
       const start = performance.now();
-
-      // Si le pano est déjà le bon, on sort vite
       if (pano.getPano && pano.getPano() === expectedPanoId) {
         await sleep(this.READY_GRACE_MS);
         resolve(true);
@@ -206,85 +159,56 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
       }
 
       const listener = pano.addListener("pano_changed", async () => {
-        // Vérifie qu'on est bien sur le pano attendu
         if (pano.getPano && pano.getPano() === expectedPanoId) {
           listener.remove();
-          await sleep(this.READY_GRACE_MS); // laisse le temps d’afficher des tuiles
+          await sleep(this.READY_GRACE_MS);
           resolve(true);
         }
       });
 
-      // timeout de sécurité
-      await (async () => {
-        while (performance.now() - start < this.MAX_WAIT_MS) {
-          if (pano.getPano && pano.getPano() === expectedPanoId) {
-            listener.remove();
-            await sleep(this.READY_GRACE_MS);
-            resolve(true);
-            return;
-          }
-          await sleep(100);
-        }
-        // Au pire on tente quand même (mais ça peut re-clignoter si réseau lent)
-        try {
+      while (performance.now() - start < this.MAX_WAIT_MS) {
+        if (pano.getPano && pano.getPano() === expectedPanoId) {
           listener.remove();
-        } catch (e) {
+          await sleep(this.READY_GRACE_MS);
+          resolve(true);
+          return;
         }
-        resolve(false);
-      })();
+        await sleep(100);
+      }
+
+      try { listener.remove(); } catch {}
+      resolve(false);
     });
   }
 
-   crossfade(toShowId:any, toHideId:any) {
-    // @ts-ignore
-     document.getElementById(toShowId).style.opacity = "1";
-    // @ts-ignore
-     document.getElementById(toHideId).style.opacity = "0";
+  crossfade(toShowId: any, toHideId: any) {
+    (document.getElementById(toShowId) as HTMLElement).style.opacity = "1";
+    (document.getElementById(toHideId) as HTMLElement).style.opacity = "0";
   }
 
-  init() {
-    this.setFadeDuration(this.FADE_MS);
-  }
-
-  async chargerElevation() {
-    this.elevator.getElevationForLocations({'locations': [this.next.getPosition()]}, (results, status) => {
-      if (status === 'OK') {
-         if (!(results) || results[0]) {
-
-           if (results) {
-            if(this.premelev){
-              this.oldelev=results[0].elevation;
-              this.premelev=false;
-            }
-            this.elevation=results[0].elevation;
-            let deltaElevation:number = this.elevation-this.oldelev;
-            if(deltaElevation>0)  this.deniv+=deltaElevation;
-            this.oldelev=this.elevation;
-
-            console.log("elevation = " + results[0].elevation);
-            console.log("distparcours = "+this.distParcours);
-            this.wstacx.send("h:"+this.elevation+":"+this.distParcours);
-          }
-            }
-          }
-
-   });
-  }
-
-
-
-
-
-    difference(pano:any, link:any) {
-    var diff = Math.abs(pano.pov.heading % 360 - link.heading);
-    if (diff > 180)
-      diff = Math.abs(360 - diff);
+  difference(pano: any, link: any) {
+    let diff = Math.abs(pano.pov.heading % 360 - link.heading);
+    if (diff > 180) diff = Math.abs(360 - diff);
     return diff;
   }
 
+
+
+  recentrerCarteSurPanoActif() {
+    if (!this.carte || !this.active) return;
+
+    const position = this.active.getPosition();
+    this.carte.setCenter(position);
+  }
+
+
+
+  // ... garder avancer(), calculDistance(), zoomOut() comme avant, en appelant this.chargerElevation()
   async   avancer() {
 
     do {
+
+      this.recentrerCarteSurPanoActif();
       this.chargerElevation();
       console.log("ok0");
       console.log("boucle avancer , distparcours = "+ this.distParcours);
@@ -327,7 +251,7 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
 
       // Précharge le pano suivant (EN RESTANT INVISIBLE)
       this.next.setPano(target.pano);
-       let dist = this.calculDistance(this.active,this.next);
+      let dist = this.calculDistance(this.active,this.next);
       await this.zoomOut(this.active,dist);
 
       // Attendre qu’il soit “prêt” (au moins un pano_changed + petite marge)
@@ -362,7 +286,7 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
 
   }
 
- async   zoomOut( pano :any,dist:number) {
+  async   zoomOut( pano :any,dist:number) {
 
     let zoomact=1;
     let dtot=0;
@@ -373,7 +297,6 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
         let deltaDist=(now - startzoom)*this.vit/3600 ;
         dtot = dtot+deltaDist;
         this.distParcours+=deltaDist;
-
         console.log("distance parcours="+this.distParcours);
         zoomact= 1+ dtot/dist * this.vitZoom;
         // @ts-ignore
@@ -387,10 +310,7 @@ export class DemarrerComponent implements  OnInit,OnDestroy {
   }
 }
 
-
-
-
-
+export default DemarrerComponent
 
 
 

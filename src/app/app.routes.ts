@@ -7,7 +7,7 @@ import {SimulationComponent} from './components/simulation/simulation.component'
 import {ReelComponent} from './components/reel/reel.component';
 import {ChoixparcoursComponent} from './components/choixparcours/choixparcours.component';
 import {ChoixpointComponent} from './components/choixpoint/choixpoint.component';
-import {DemarrerComponent} from './components/demarrer/demarrer.component';
+import DemarrerComponent from './components/demarrer/demarrer.component';
 import {TdbComponent} from './components/tdb/tdb.component';
 import {Routes} from '@angular/router';
 

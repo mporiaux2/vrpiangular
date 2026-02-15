@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { DemarrerComponent } from './demarrer.component';
+import DemarrerComponent from './demarrer.component';
 
 describe('DemarrerComponent', () => {
   let component: DemarrerComponent;

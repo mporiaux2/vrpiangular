@@ -1,4 +1,5 @@
-import { Component } from '@angular/core';
+import {Component} from '@angular/core';
+
 
 @Component({
   selector: 'app-choixparcours',
@@ -6,6 +7,10 @@ import { Component } from '@angular/core';
   templateUrl: './choixparcours.component.html',
   styleUrl: './choixparcours.component.css',
 })
+
+
+
 export class ChoixparcoursComponent {
+
 
 }
