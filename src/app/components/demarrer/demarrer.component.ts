@@ -54,6 +54,7 @@ class DemarrerComponent implements OnInit, OnDestroy {
 
   rot:number=0;
 
+
   constructor(
     private cdr: ChangeDetectorRef,
     private valeursService: ValeursService,
@@ -77,10 +78,14 @@ class DemarrerComponent implements OnInit, OnDestroy {
 
     this.wsarduino = new WebSocket("ws://pi5.local/wsarduinohtml");
     this.wsarduino.onmessage = (e) => {
+
       this.rot = parseInt(e.data, 10);
+      if(!isNaN(this.rot)){
       this.active?.setPov({ heading: this.rot, pitch: 0 });
       this.next?.setPov({ heading: this.rot, pitch: 0 });
       this.carte?.setHeading(this.rot);
+      console.log("heading de la carte = "+this.rot);
+       }
      };
   }
 
@@ -107,7 +112,7 @@ class DemarrerComponent implements OnInit, OnDestroy {
         zoom: 22,
         tilt: 47.5,
         mapTypeId: 'satellite',
-        heading: this.rot,
+        heading: this.head,
         mapId: '90f87356969d889c',
       }
     );
@@ -198,14 +203,16 @@ class DemarrerComponent implements OnInit, OnDestroy {
     if (!this.carte || !this.active) return;
 
     const position = this.active.getPosition();
-    this.carte.setCenter(position);
+   this.carte.setCenter(position);
   }
 
 
 
   // ... garder avancer(), calculDistance(), zoomOut() comme avant, en appelant this.chargerElevation()
-  async   avancer() {
+  async   avancer(){
 
+
+  map = new google.maps.Map(document.getElementById(divcarte), {
     do {
 
       this.recentrerCarteSurPanoActif();
