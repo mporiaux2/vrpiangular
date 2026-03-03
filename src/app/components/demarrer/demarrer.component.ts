@@ -1,5 +1,5 @@
 // demarrer.component.ts (version allégée côté Google Maps)
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef ,ElementRef,ViewChild} from '@angular/core';
 import { SimulationComponent } from '../simulation/simulation.component';
 import { FormsModule } from '@angular/forms';
 import { TdbComponent } from '../tdb/tdb.component';
@@ -19,6 +19,60 @@ async function sleep(ms: number) {
   styleUrl: './demarrer.component.css',
 })
 class DemarrerComponent implements OnInit, OnDestroy {
+
+
+   @ViewChild('carteDiv', { static: true }) carteDiv!: ElementRef<HTMLElement>;
+    @ViewChild('leftCarteSlot', { static: true }) leftCarteSlot!: ElementRef<HTMLElement>;
+    @ViewChild('wrapCarteSlot', { static: true }) wrapCarteSlot!: ElementRef<HTMLElement>;
+
+
+ carteDansWrap = false;
+
+  // ... le reste de ton code
+
+  toggleCartePosition() {
+    const carteEl = this.carteDiv.nativeElement;
+
+    if (!this.carteDansWrap) {
+      // Mettre la carte dans le wrap, dans le slot prévu (au-dessus des panos)
+      this.wrapCarteSlot.nativeElement.appendChild(carteEl);
+    } else {
+      // Remettre la carte à gauche
+      this.leftCarteSlot.nativeElement.appendChild(carteEl);
+
+      this.panoA = this.maps.createPanorama(
+            document.getElementById('panoA') as HTMLElement,
+            this.startPos,
+            this.rot
+          );
+      this.panoB = this.maps.createPanorama(
+            document.getElementById('panoB') as HTMLElement,
+            this.startPos,
+            this.rot
+          );
+
+    }
+
+    this.carteDansWrap = !this.carteDansWrap;
+
+    // IMPORTANT : refresh Google Maps après changement de taille/parent DOM
+    setTimeout(() => {
+      try {
+        // @ts-ignore (si google n'est pas typé)
+        google.maps.event.trigger(this.carte, 'resize');
+
+        const center = this.active?.getPosition?.() || this.startPos;
+        this.carte?.setCenter?.(center);
+      } catch (e) {
+        // pas bloquant si l'API n'est pas encore prête
+      }
+    }, 400);
+  }
+
+
+
+
+
 
   vitZoom: number;
   FADE_MS: number;
@@ -78,7 +132,12 @@ class DemarrerComponent implements OnInit, OnDestroy {
 
     this.wsarduino = new WebSocket("ws://pi5.local/wsarduinohtml");
     this.wsarduino.onmessage = (e) => {
+       console.log("data reçue de arduino ",e.data);
+       if(isNaN(e.data)){
+         console.log("message reçu de arduino : "+e.data);
 
+         }
+       else {
       this.rot = parseInt(e.data, 10);
       if(!isNaN(this.rot)){
       this.active?.setPov({ heading: this.rot, pitch: 0 });
@@ -87,6 +146,7 @@ class DemarrerComponent implements OnInit, OnDestroy {
       console.log("heading de la carte = "+this.rot);
        }
      };
+   }
   }
 
   async ngOnInit(): Promise<void> {
@@ -136,7 +196,7 @@ class DemarrerComponent implements OnInit, OnDestroy {
 
   async chargerElevation() {
     try {
-      const elev = await this.maps.getElevationAt(this.next.getPosition());
+      const elev = await this.maps.getElevationAt(this.carteDansWrap?this.startPos:this.next.getPosition());
       if (this.premelev) {
         this.oldelev = elev;
         this.premelev = false;
@@ -201,29 +261,45 @@ class DemarrerComponent implements OnInit, OnDestroy {
 
   recentrerCarteSurPanoActif() {
     if (!this.carte || !this.active) return;
+   const center = this.carte.getCenter();
+   if (!center) return;
 
-    const position = this.active.getPosition();
-   this.carte.setCenter(position);
+   console.log('DEBUG before call', {
+     center,
+     lat: center?.lat?.(),
+     lng: center?.lng?.(),
+     rot: this.rot,
+     rotType: typeof this.rot
+   });
+
+const bearing = Number(this.rot);
+if (!Number.isFinite(bearing)) {
+  console.error('rot invalide:', this.rot);
+  return;
+}
+
+
+    this.startPos =  this.carteDansWrap ? this.calculateDestination(center.lat(), center.lng(), bearing, 10): this.active.getPosition();
+    this.carte.setCenter(this.startPos);
+    this.valeursService.startPos=this.startPos;
   }
 
 
 
   // ... garder avancer(), calculDistance(), zoomOut() comme avant, en appelant this.chargerElevation()
   async   avancer(){
-
-
-  map = new google.maps.Map(document.getElementById(divcarte), {
     do {
-
       this.recentrerCarteSurPanoActif();
       this.chargerElevation();
-      console.log("ok0");
-      console.log("boucle avancer , distparcours = "+ this.distParcours);
       this.distParcours=Math.round(this.distParcours);
       this.cdr.detectChanges();
+      if(this.carteDansWrap) {
+        await sleep(36000/this.vit);
+        this.distParcours+=10;
+        continue;
+        }
       if (this.isTransitioning) return;
       this.isTransitioning = true;
-
       this.active = (this.current === "A") ? this.panoA : this.panoB;
       this.next = (this.current === "A") ? this.panoB : this.panoA;
 
@@ -293,6 +369,25 @@ class DemarrerComponent implements OnInit, OnDestroy {
 
   }
 
+
+calculateDestination(lat:number, lon:number, bearing:number, distance:number) {
+
+    // Convertir l'orientation en radians
+    const bearingRad :number=   bearing * (Math.PI / 180);
+       const latRad : number  = lat * (Math.PI / 180);
+
+    // Calcul de la nouvelle latitude et longitude
+    const newLat = lat + (distance * Math.cos(bearingRad)) / 111320;
+
+    const newLon = lon + (distance * Math.sin(bearingRad)) / (111320 * Math.cos(latRad));
+  console.log("lat calculée  bis=  "+newLat);
+    return {
+      lat: newLat,
+      lng: newLon,
+    };
+  }
+
+
   async   zoomOut( pano :any,dist:number) {
 
     let zoomact=1;
@@ -304,7 +399,7 @@ class DemarrerComponent implements OnInit, OnDestroy {
         let deltaDist=(now - startzoom)*this.vit/3600 ;
         dtot = dtot+deltaDist;
         this.distParcours+=deltaDist;
-        console.log("distance parcours="+this.distParcours);
+        //console.log("distance parcours="+this.distParcours);
         zoomact= 1+ dtot/dist * this.vitZoom;
         // @ts-ignore
         pano.setZoom(zoomact); // zoom vers 3
@@ -318,6 +413,7 @@ class DemarrerComponent implements OnInit, OnDestroy {
 }
 
 export default DemarrerComponent
+
 
 
 

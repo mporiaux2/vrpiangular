@@ -1,26 +1,50 @@
 
+
 <div class="containerglobal">
-<div class="left">
-  <div class="tdb">
-  <div>
-    <button (click)="avancer()">avancer</button>
-    <button type="button" (click)="toggleChild()">
-      {{ showChild ? 'OFF' : 'ON' }}
-    </button>
-  </div>
 
- <app-simulation *ngIf="showChild" [wstacx]="wstacx" [wsarduino]="wsarduino"></app-simulation>
-    <div id="carte">
+  <!-- Colonne gauche (20%) -->
+  <div id="tdbid" class="left">
+    <div class="tdb">
+      <div class="controls">
+        <button (click)="avancer()">START</button>
+        <button type="button" (click)="toggleChild()">
+          {{ showChild ? 'OFF' : 'ON' }}
+        </button>
+      </div>
+      <button type="button" (click)="toggleCartePosition()">
+        {{ carteDansWrap ? 'STREET VIEW' : 'VTT' }}
+      </button>
 
+
+      <app-simulation
+        *ngIf="showChild"
+        [wstacx]="wstacx"
+        [wsarduino]="wsarduino">
+      </app-simulation>
+
+      <!-- Slot où la carte revient quand elle est à gauche -->
+      <div #leftCarteSlot class="carte-slot-left">
+        <div id="carte" #carteDiv [class.in-wrap]="carteDansWrap"></div>
+      </div>
+
+      <app-tdb
+        [vit]="vit"
+        [distParcours]="distParcours"
+        [elevation]="elevation"
+        [pente]="pente"
+        [deniv]="deniv">
+      </app-tdb>
     </div>
-
-  <app-tdb [vit]="vit" [distParcours]="distParcours" [elevation]="elevation" [pente]="pente" [deniv]="deniv"></app-tdb>
   </div>
-</div>
-<div id="wrap" class="right">
-  <div id="panoA" class="panoView"></div>
-  <div id="panoB" class="panoView"></div>
-</div>
-</div>
 
+  <!-- Colonne droite (80%) -->
+  <div id="wrap" class="right" #wrapContainer>
 
+    <!-- Slot où la carte va quand elle est dans wrap (AU-DESSUS des panos) -->
+    <div #wrapCarteSlot class="carte-slot-wrap"></div>
+
+    <div id="panoA" class="panoView"></div>
+    <div id="panoB" class="panoView"></div>
+  </div>
+
+</div>
