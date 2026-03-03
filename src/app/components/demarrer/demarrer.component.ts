@@ -26,6 +26,47 @@ class DemarrerComponent implements OnInit, OnDestroy {
     @ViewChild('wrapCarteSlot', { static: true }) wrapCarteSlot!: ElementRef<HTMLElement>;
 
 
+
+
+
+
+
+
+  vitZoom: number;
+  FADE_MS: number;
+  READY_GRACE_MS: number;
+  MAX_WAIT_MS: number;
+
+  head = 0;
+  vit = 10;
+  pente = 0;
+
+  current = "A";
+  active: any;
+  next: any;
+  isTransitioning = false;
+
+  panoA: any;
+  panoB: any;
+
+  carte:any;
+
+  wstacx: WebSocket;
+  wsarduino: WebSocket;
+
+  distParcours = 0;
+  elevation = 0;
+  startPos = { lat: 50.456494, lng: 4.238618 };
+
+  oldelev = 0;
+  deniv = 0;
+  premelev = true;
+
+  showChild = true;
+
+  rot:number=0;
+
+
  carteDansWrap = false;
 
   // ... le reste de ton code
@@ -70,43 +111,6 @@ class DemarrerComponent implements OnInit, OnDestroy {
   }
 
 
-
-
-
-
-  vitZoom: number;
-  FADE_MS: number;
-  READY_GRACE_MS: number;
-  MAX_WAIT_MS: number;
-
-  head = 0;
-  vit = 10;
-  pente = 0;
-
-  current = "A";
-  active: any;
-  next: any;
-  isTransitioning = false;
-
-  panoA: any;
-  panoB: any;
-
-  carte:any;
-
-  wstacx: WebSocket;
-  wsarduino: WebSocket;
-
-  distParcours = 0;
-  elevation = 0;
-  startPos = { lat: 50.456494, lng: 4.238618 };
-
-  oldelev = 0;
-  deniv = 0;
-  premelev = true;
-
-  showChild = true;
-
-  rot:number=0;
 
 
   constructor(
