@@ -1,4 +1,7 @@
 // demarrer.component.ts (version allégée côté Google Maps)
+
+
+
 import { Component, OnInit, OnDestroy, ChangeDetectorRef ,ElementRef,ViewChild} from '@angular/core';
 import { SimulationComponent } from '../simulation/simulation.component';
 import { FormsModule } from '@angular/forms';
@@ -6,6 +9,7 @@ import { TdbComponent } from '../tdb/tdb.component';
 import { ValeursService } from '../../services/valeurs.service';
 import { NgIf } from '@angular/common';
 import { StreetViewMapsService } from '../../services/StreetViewMapService.service';
+import {Carte, Coordonnees} from './carte';
 
 async function sleep(ms: number) {
   return new Promise(r => setTimeout(r, ms));
@@ -21,16 +25,9 @@ async function sleep(ms: number) {
 class DemarrerComponent implements OnInit, OnDestroy {
 
 
-   @ViewChild('carteDiv', { static: true }) carteDiv!: ElementRef<HTMLElement>;
-    @ViewChild('leftCarteSlot', { static: true }) leftCarteSlot!: ElementRef<HTMLElement>;
-    @ViewChild('wrapCarteSlot', { static: true }) wrapCarteSlot!: ElementRef<HTMLElement>;
-
-
-
-
-
-
-
+  @ViewChild('carteDiv', { static: true }) carteDiv!: ElementRef<HTMLElement>;
+  @ViewChild('leftCarteSlot', { static: true }) leftCarteSlot!: ElementRef<HTMLElement>;
+  @ViewChild('wrapCarteSlot', { static: true }) wrapCarteSlot!: ElementRef<HTMLElement>;
 
   vitZoom: number;
   FADE_MS: number;
@@ -49,14 +46,15 @@ class DemarrerComponent implements OnInit, OnDestroy {
   panoA: any;
   panoB: any;
 
-  carte:any;
+  //carte:any;
 
+  carte:Carte|null=null;
   wstacx: WebSocket;
   wsarduino: WebSocket;
 
   distParcours = 0;
   elevation = 0;
-  startPos = { lat: 50.456494, lng: 4.238618 };
+  startPos=new Coordonnees( 50.456494, 4.238618 );
 
   oldelev = 0;
   deniv = 0;
@@ -66,51 +64,9 @@ class DemarrerComponent implements OnInit, OnDestroy {
 
   rot:number=0;
 
-
- carteDansWrap = false;
+  carteDansWrap = false;
 
   // ... le reste de ton code
-
-  toggleCartePosition() {
-    const carteEl = this.carteDiv.nativeElement;
-
-    if (!this.carteDansWrap) {
-      // Mettre la carte dans le wrap, dans le slot prévu (au-dessus des panos)
-      this.wrapCarteSlot.nativeElement.appendChild(carteEl);
-    } else {
-      // Remettre la carte à gauche
-      this.leftCarteSlot.nativeElement.appendChild(carteEl);
-
-      this.panoA = this.maps.createPanorama(
-            document.getElementById('panoA') as HTMLElement,
-            this.startPos,
-            this.rot
-          );
-      this.panoB = this.maps.createPanorama(
-            document.getElementById('panoB') as HTMLElement,
-            this.startPos,
-            this.rot
-          );
-
-    }
-
-    this.carteDansWrap = !this.carteDansWrap;
-
-    // IMPORTANT : refresh Google Maps après changement de taille/parent DOM
-    setTimeout(() => {
-      try {
-        // @ts-ignore (si google n'est pas typé)
-        google.maps.event.trigger(this.carte, 'resize');
-
-        const center = this.active?.getPosition?.() || this.startPos;
-        this.carte?.setCenter?.(center);
-      } catch (e) {
-        // pas bloquant si l'API n'est pas encore prête
-      }
-    }, 400);
-  }
-
-
 
 
   constructor(
@@ -136,21 +92,21 @@ class DemarrerComponent implements OnInit, OnDestroy {
 
     this.wsarduino = new WebSocket("ws://pi5.local/wsarduinohtml");
     this.wsarduino.onmessage = (e) => {
-       console.log("data reçue de arduino ",e.data);
-       if(isNaN(e.data)){
-         console.log("message reçu de arduino : "+e.data);
+      console.log("data reçue de arduino ",e.data);
+      if(isNaN(e.data)){
+        console.log("message reçu de arduino : "+e.data);
 
-         }
-       else {
-      this.rot = parseInt(e.data, 10);
-      if(!isNaN(this.rot)){
-      this.active?.setPov({ heading: this.rot, pitch: 0 });
-      this.next?.setPov({ heading: this.rot, pitch: 0 });
-      this.carte?.setHeading(this.rot);
-      console.log("heading de la carte = "+this.rot);
-       }
-     };
-   }
+      }
+      else {
+        this.rot = parseInt(e.data, 10);
+        if(!isNaN(this.rot)){
+          this.active?.setPov({ heading: this.rot, pitch: 0 });
+          this.next?.setPov({ heading: this.rot, pitch: 0 });
+          this.carte?.setHeading(this.rot);
+          console.log("heading de la carte = "+this.rot);
+        }
+      };
+    }
   }
 
   async ngOnInit(): Promise<void> {
@@ -169,7 +125,8 @@ class DemarrerComponent implements OnInit, OnDestroy {
       this.startPos,
       this.head
     );
-    this.carte = this.maps.createMap(
+    this.carte=new Carte(this.startPos,this.rot,this.maps);
+/*    this.carte = this.maps.createMap(
       document.getElementById('carte') as HTMLElement,
       {
         center: this.startPos,
@@ -179,9 +136,48 @@ class DemarrerComponent implements OnInit, OnDestroy {
         heading: this.head,
         mapId: '90f87356969d889c',
       }
-    );
+    );*/
   }
 
+
+  toggleCartePosition() {
+    const carteEl = this.carteDiv.nativeElement;
+
+    if (!this.carteDansWrap) {
+      // Mettre la carte dans le wrap, dans le slot prévu (au-dessus des panos)
+      this.wrapCarteSlot.nativeElement.appendChild(carteEl);
+    } else {
+      // Remettre la carte à gauche
+      this.leftCarteSlot.nativeElement.appendChild(carteEl);
+
+      this.panoA = this.maps.createPanorama(
+        document.getElementById('panoA') as HTMLElement,
+        this.startPos,
+        this.rot
+      );
+      this.panoB = this.maps.createPanorama(
+        document.getElementById('panoB') as HTMLElement,
+        this.startPos,
+        this.rot
+      );
+
+    }
+
+    this.carteDansWrap = !this.carteDansWrap;
+
+    // IMPORTANT : refresh Google Maps après changement de taille/parent DOM
+    setTimeout(() => {
+      try {
+        // @ts-ignore (si google n'est pas typé)
+        google.maps.event.trigger(this.carte, 'resize');
+
+        const center = this.active?.getPosition?.() || this.startPos;
+        this.carte?.setCenter?.(center);
+      } catch (e) {
+        // pas bloquant si l'API n'est pas encore prête
+      }
+    }, 400);
+  }
 
 
   ngOnDestroy(): void {
@@ -265,26 +261,19 @@ class DemarrerComponent implements OnInit, OnDestroy {
 
   recentrerCarteSurPanoActif() {
     if (!this.carte || !this.active) return;
-   const center = this.carte.getCenter();
-   if (!center) return;
-
-   console.log('DEBUG before call', {
-     center,
-     lat: center?.lat?.(),
-     lng: center?.lng?.(),
-     rot: this.rot,
-     rotType: typeof this.rot
-   });
-
-const bearing = Number(this.rot);
-if (!Number.isFinite(bearing)) {
-  console.error('rot invalide:', this.rot);
-  return;
-}
 
 
-    this.startPos =  this.carteDansWrap ? this.calculateDestination(center.lat(), center.lng(), bearing, 10): this.active.getPosition();
-    this.carte.setCenter(this.startPos);
+    if(this.carteDansWrap){
+      this.carte.moveCenter();
+      this.startPos=this.carte.centre;
+    }
+    else {
+      this.startPos=this.active.getPosition();
+      this.carte.setCenter(this.startPos);
+    }
+
+    //this.startPos =  this.carteDansWrap ? this.calculateDestination(center.lat(), center.lng(), bearing, 10): this.active.getPosition();
+
     this.valeursService.startPos=this.startPos;
   }
 
@@ -301,7 +290,7 @@ if (!Number.isFinite(bearing)) {
         await sleep(36000/this.vit);
         this.distParcours+=10;
         continue;
-        }
+      }
       if (this.isTransitioning) return;
       this.isTransitioning = true;
       this.active = (this.current === "A") ? this.panoA : this.panoB;
@@ -339,6 +328,7 @@ if (!Number.isFinite(bearing)) {
       // Précharge le pano suivant (EN RESTANT INVISIBLE)
       this.next.setPano(target.pano);
       let dist = this.calculDistance(this.active,this.next);
+
       await this.zoomOut(this.active,dist);
 
       // Attendre qu’il soit “prêt” (au moins un pano_changed + petite marge)
@@ -360,8 +350,12 @@ if (!Number.isFinite(bearing)) {
 
 
   calculDistance(pa:any,pb:any) : number{
+    const crda=new Coordonnees(pa.getPosition().lat(),pa.getPosition().lng());
+    const crdb=new Coordonnees(pb.getPosition().lat(),pb.getPosition().lng());
 
-    const R = 6371000.0;
+    return crda.distance(crdb);
+
+   /*const R = 6371000.0;
     const oldlatr =  pa.getPosition().lat() * Math.PI / 180;
     const oldlongr = pa.getPosition().lng() * Math.PI / 180;
     const latr = pb.getPosition().lat() * Math.PI / 180;
@@ -369,31 +363,32 @@ if (!Number.isFinite(bearing)) {
 
     return R * Math.acos(Math.cos(oldlatr) * Math.cos(latr) *
       Math.cos(longr - oldlongr) + Math.sin(oldlatr) *
-      Math.sin(latr));
+      Math.sin(latr));*/
 
   }
 
 
-calculateDestination(lat:number, lon:number, bearing:number, distance:number) {
-
+  calculateDestination(lat:number, lon:number, bearing:number, distance:number) {
+     let crd=new Coordonnees(lat,lon);
+     return crd.destination(bearing,distance);
     // Convertir l'orientation en radians
-    const bearingRad :number=   bearing * (Math.PI / 180);
-       const latRad : number  = lat * (Math.PI / 180);
+/*    const bearingRad :number=   bearing * (Math.PI / 180);
+    const latRad : number  = lat * (Math.PI / 180);
 
     // Calcul de la nouvelle latitude et longitude
     const newLat = lat + (distance * Math.cos(bearingRad)) / 111320;
 
     const newLon = lon + (distance * Math.sin(bearingRad)) / (111320 * Math.cos(latRad));
-  console.log("lat calculée  bis=  "+newLat);
+    console.log("lat calculée  bis=  "+newLat);
     return {
       lat: newLat,
       lng: newLon,
-    };
+    };*/
   }
 
 
   async   zoomOut( pano :any,dist:number) {
-
+   console.log("appel de zoomout");
     let zoomact=1;
     let dtot=0;
     return new Promise<void>(resolve => {
@@ -403,8 +398,9 @@ calculateDestination(lat:number, lon:number, bearing:number, distance:number) {
         let deltaDist=(now - startzoom)*this.vit/3600 ;
         dtot = dtot+deltaDist;
         this.distParcours+=deltaDist;
-        //console.log("distance parcours="+this.distParcours);
+        console.log("distance parcours="+this.distParcours);
         zoomact= 1+ dtot/dist * this.vitZoom;
+        console.log("zoomact = "+zoomact);
         // @ts-ignore
         pano.setZoom(zoomact); // zoom vers 3
         startzoom = now;
@@ -417,6 +413,12 @@ calculateDestination(lat:number, lon:number, bearing:number, distance:number) {
 }
 
 export default DemarrerComponent
+
+
+
+
+
+
 
 
 
