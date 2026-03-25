@@ -1,5 +1,6 @@
 import {StreetViewMapsService} from '../../services/StreetViewMapService.service';
 import {ValeursService} from '../../services/valeurs.service';
+import {resolve} from '@angular/compiler-cli';
 
 export class Coordonnees {
   constructor(
@@ -39,7 +40,6 @@ export class Coordonnees {
     const newLat = this.lat + (distance * Math.cos(bearingRad)) / 111320;
 
     const newLon = this.lng + (distance * Math.sin(bearingRad)) / (111320 * Math.cos(latRad));
-    console.log("destination = "+new Coordonnees(newLat, newLon));
     return new Coordonnees(newLat, newLon);
   }
 }
@@ -95,6 +95,8 @@ export class Panos{
   private head = 0;
   private vitZoom:number;
   public distParcours=0;
+  public vit:number=0;
+  public dist:number=0;
   constructor(private maps: StreetViewMapsService,private startPos:Coordonnees,private rot:number,private valeursService:ValeursService) {
 
     this.panoA=this.maps.createPanorama(
@@ -121,21 +123,6 @@ export class Panos{
     (document.getElementById("panoB") as HTMLElement).style.transition = `opacity ${ms}ms ease`;
   }
 
-  public getPosition():Coordonnees {
-    return this.active.getPosition();
-  }
-
-  public getNextPosition():Coordonnees {
-    return this.next.getPosition();
-  }
-
-
-
-  public setPov(nrot:number) : void {
-    this.rot=nrot;
-    this.panoA?.setPov({ heading: this.rot, pitch: 0 });
-    this.panoB?.setPov({ heading: this.rot, pitch: 0 });
-  }
 
 
   waitForNextPanoReady(pano: any, expectedPanoId: any) {
@@ -181,28 +168,22 @@ export class Panos{
     return diff;
   }
 
-  public swap():void{
-    this.active = (this.current === "A") ? this.panoA : this.panoB;
-    this.next = (this.current === "A") ? this.panoB : this.panoA;
-  }
-
 
   public async avancer(){
+    this.active = (this.current === "A") ? this.panoA : this.panoB;
+    this.next = (this.current === "A") ? this.panoB : this.panoA;
     const links = this.active.getLinks();
     if (!links || links.length === 0) {
       this.isTransitioning = false;
       return;
     }
-    let curr = this.active.links[0];
-    let differ = this.difference(this.active, curr);
-    for (let i = 1; i < this.active.getLinks().length; i++) {
-      differ = this.difference(this.active, this.active.links[i]);
-      if (this.difference(this.active, curr) > this.difference(this.active, this.active.links[i])) {
-        curr = this.active.links[i];
+    let target = this.active.links[0];
+     for (let i = 1; i < this.active.getLinks().length; i++) {
+       if (this.difference(this.active, target) > this.difference(this.active, this.active.links[i])) {
+        target = this.active.links[i];
        }
     }
 
-    const target :any = curr;
 
     // Aligne POV pour que le fondu paraisse “continu”
     const pov = this.active.getPov();
@@ -214,23 +195,26 @@ export class Panos{
     this.next.setPano(target.pano);
     const crdAct = new Coordonnees(this.active.getPosition().lat(),this.active.getPosition().lng());
     const crdNext = new Coordonnees(this.next.getPosition().lat(),this.next.getPosition().lng());
-    let dist=crdAct.distance(crdNext);
-    await this.zoomOut(this.active,dist);
+    this.dist=crdAct.distance(crdNext);
+    return new Promise<void>(async resolve=>
+    {
+     await this.zoomOut(this.active, this.dist);
+      // Attendre qu’il soit “prêt” (au moins un pano_changed + petite marge)
+      await this.waitForNextPanoReady(this.next, target.pano);
+      // Crossfade SANS NOIR : A reste visible pendant que B monte
+      if (this.current === "A") {
+        this.crossfade("panoB", "panoA");
+        this.current = "B";
+      } else {
+        this.crossfade("panoA", "panoB");
+        this.current = "A";
+      }
 
-    // Attendre qu’il soit “prêt” (au moins un pano_changed + petite marge)
-    await this.waitForNextPanoReady(this.next, target.pano);
-    // Crossfade SANS NOIR : A reste visible pendant que B monte
-    if (this.current === "A") {
-      this.crossfade("panoB", "panoA");
-      this.current = "B";
-    } else {
-      this.crossfade("panoA", "panoB");
-      this.current = "A";
-    }
-
-    // Bloque les clics pendant la transition
-    this.sleep(this.FADE_MS);
-    this.isTransitioning = false;
+      // Bloque les clics pendant la transition
+      this.sleep(this.FADE_MS);
+      this.isTransitioning = false;
+      resolve();
+    });
   }
 
   async sleep(ms: number) {
@@ -248,10 +232,10 @@ export class Panos{
         let deltaDist=(now - startzoom)*this.vit/3600 ;
         dtot = dtot+deltaDist;
         this.distParcours+=deltaDist;
-        //console.log("distance parcours="+this.distParcours);
         zoomact= 1+ dtot/dist * this.vitZoom;
-        // @ts-ignore
+         // @ts-ignore
         pano.setZoom(zoomact); // zoom vers 3
+
         startzoom = now;
         if (dtot< dist) requestAnimationFrame(step);
         else resolve();
